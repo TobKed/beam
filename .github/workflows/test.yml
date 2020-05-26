@@ -1,0 +1,43 @@
+on: [push]
+name: CI-test
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v1
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python3 -m pip install -r build-requirements.txt
+      - name: Install wheels
+        run: python3 -m pip install wheel
+      - name: Buld wheels
+        working-directory: ./sdks/python
+        run: python3 setup.py sdist bdist_wheel
+      - name: Upload wheels
+        uses: actions/upload-artifact@v1
+        with:
+          name: dist
+          path: sdks/python/dist/
+
+  copy-to-bucket:
+    runs-on: ubuntu-latest
+    name: Copy wheels to GCS bucket
+    needs: build
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v1
+        with:
+          name: dist
+          path: dist/
+      - name: Authenticate on GCP
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          service_account_email: ${{ secrets.CCP_SA_EMAIL }}
+          service_account_key: ${{ secrets.CCP_SA_KEY }}
+      - name: Copy wheels to GCS bucket
+        run: gsutil cp -r -a public-read dist/* gs://${{ secrets.CCP_BUCKET }}/${GITHUB_REF##*/}/
