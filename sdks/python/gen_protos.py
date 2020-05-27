@@ -253,12 +253,6 @@ def generate_proto_files(force=False, log=None):
   out_dir = os.path.join(py_sdk_root, PYTHON_OUTPUT_PATH)
   out_files = [path for path in glob.glob(os.path.join(out_dir, '*_pb2.py'))]
 
-  log.info(f"py_sdk_root {py_sdk_root}" )
-  log.info(f"common {common}" )
-  log.info(f"proto_files {proto_files}" )
-  log.info(f"out_dir {out_dir}" )
-  log.info(f"out_files {out_files}" )
-
   if out_files and not proto_files and not force:
     # We have out_files but no protos; assume they're up to date.
     # This is actually the common case (e.g. installation from an sdist).
