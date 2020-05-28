@@ -2,31 +2,61 @@ on: [push]
 name: CI-test
 
 env:
-  #      VERSION=$(echo ${TRAVIS_BRANCH} | sed 's/release-//')
+#  VERSION=$(echo ${TRAVIS_BRANCH} | sed 's/release-//')
   VERSION: 2.20.0
   PYTHON_ARTIFACTS_DIR: python
-#  STAGING: https://dist.apache.org/repos/dist/dev/beam/${VERSION}/${PYTHON_ARTIFACTS_DIR}
-  STAGING: https://storage.cloud.google.com/beam-wheel-test-bucket
+  STAGING: https://dist.apache.org/repos/dist/dev/beam/${VERSION}/${PYTHON_ARTIFACTS_DIR}
+#  STAGING: https://storage.cloud.google.com/beam-wheel-test-bucket
   ZIP_FILE: apache-beam-${VERSION}.zip
 
 jobs:
 
-  get_source:
+  build_source:
     runs-on: ubuntu-18.04
     steps:
-    - name: Download source
-      run: wget ${{ env.STAGING }}/${{ env.ZIP_FILE }}
-    - name: Unzip source
-      run: unzip ${{ env.ZIP_FILE }}
-    - name: Upload source
-      uses: actions/upload-artifact@v2
-      with:
-        name: source
-        path: apache-beam-${{ env.VERSION }}
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v1
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python3 -m pip install cython && python3 -m pip install -r build-requirements.txt
+      - name: Install wheels
+        run: python3 -m pip install wheel
+      - name: Buld source
+        working-directory: ./sdks/python
+        run: python3 setup.py sdist --format=zip
+
+      - name: Unzip source
+        working-directory: ./sdks/python
+        run: unzip dist/$(ls dist | head -n 1)
+
+      - name: Rename source directory
+        working-directory: ./sdks/python
+        run: mv $(ls | grep apache-beam) apache-beam
+
+      - name: Upload source
+        uses: actions/upload-artifact@v2
+        with:
+          name: source
+          path: sdks/python/apache-beam
+
+#  get_source:
+#    runs-on: ubuntu-18.04
+#    steps:
+#    - name: Download source
+#      run: wget ${{ env.STAGING }}/${{ env.ZIP_FILE }}
+#    - name: Unzip source
+#      run: unzip ${{ env.ZIP_FILE }}
+#    - name: Upload source
+#      uses: actions/upload-artifact@v2
+#      with:
+#        name: source
+#        path: apache-beam-${{ env.VERSION }}
 
   build_wheels:
     name: Build wheel on ${{ matrix.os }}
-    needs: get_source
+    needs: build_source
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -41,12 +71,21 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: '3.7'
+    - name: Install Visual C++ for Python 2.7 on Windows
+      if: startsWith(matrix.os, 'windows')
+      run: |
+        choco install vcpython27 -f -y
+    - name: Install packages on Mac
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew update
+        brew install pkg-config
     - name: Install cibuildwheel
       run: python3 -m pip install cibuildwheel==1.4.2
     - name: Build wheel
       working-directory: apache-beam-${{ env.VERSION }}
       env:
-        CIBW_BUILD: cp27-* cp36-* cp37-*
+        CIBW_BUILD: cp27-* cp35-* cp36-* cp37-*
         CIBW_BUILD_VERBOSITY: 1
         CIBW_BEFORE_BUILD: pip install cython
       run: cibuildwheel --output-dir wheelhouse
