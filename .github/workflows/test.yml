@@ -5,7 +5,8 @@ env:
   #      VERSION=$(echo ${TRAVIS_BRANCH} | sed 's/release-//')
   VERSION: 2.20.0
   PYTHON_ARTIFACTS_DIR: python
-  STAGING: https://dist.apache.org/repos/dist/dev/beam/${VERSION}/${PYTHON_ARTIFACTS_DIR}
+#  STAGING: https://dist.apache.org/repos/dist/dev/beam/${VERSION}/${PYTHON_ARTIFACTS_DIR}
+  STAGING: https://storage.cloud.google.com/beam-wheel-test-bucket
   ZIP_FILE: apache-beam-${VERSION}.zip
 
 jobs:
@@ -45,8 +46,9 @@ jobs:
     - name: Build wheel
       working-directory: apache-beam-${{ env.VERSION }}
       env:
-        CIBW_BUILD: cp27-* cp37-*
+        CIBW_BUILD: cp27-* cp36-* cp37-*
         CIBW_BUILD_VERBOSITY: 1
+        CIBW_BEFORE_BUILD: pip install cython
       run: cibuildwheel --output-dir wheelhouse
       shell: bash
     - name: Upload wheels
