@@ -11,35 +11,35 @@ env:
 
 jobs:
 
-  build_source:
-    runs-on: ubuntu-18.04
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Install python
-        uses: actions/setup-python@v1
-      - name: Get build dependencies
-        working-directory: ./sdks/python
-        run: python3 -m pip install cython && python3 -m pip install -r build-requirements.txt
-      - name: Install wheels
-        run: python3 -m pip install wheel
-      - name: Buld source
-        working-directory: ./sdks/python
-        run: python3 setup.py sdist --format=zip
-
-      - name: Unzip source
-        working-directory: ./sdks/python
-        run: unzip dist/$(ls dist | head -n 1)
-
-      - name: Rename source directory
-        working-directory: ./sdks/python
-        run: mv $(ls | grep apache-beam) apache-beam
-
-      - name: Upload source
-        uses: actions/upload-artifact@v2
-        with:
-          name: source
-          path: sdks/python/apache-beam
+#  build_source:
+#    runs-on: ubuntu-18.04
+#    steps:
+#      - name: Checkout code
+#        uses: actions/checkout@v2
+#      - name: Install python
+#        uses: actions/setup-python@v1
+#      - name: Get build dependencies
+#        working-directory: ./sdks/python
+#        run: python3 -m pip install cython && python3 -m pip install -r build-requirements.txt
+#      - name: Install wheels
+#        run: python3 -m pip install wheel
+#      - name: Buld source
+#        working-directory: ./sdks/python
+#        run: python3 setup.py sdist --format=zip
+#
+#      - name: Unzip source
+#        working-directory: ./sdks/python
+#        run: unzip dist/$(ls dist | head -n 1)
+#
+#      - name: Rename source directory
+#        working-directory: ./sdks/python
+#        run: mv $(ls | grep apache-beam) apache-beam
+#
+#      - name: Upload source
+#        uses: actions/upload-artifact@v2
+#        with:
+#          name: source
+#          path: sdks/python/apache-beam
 
 #  get_source:
 #    runs-on: ubuntu-18.04
@@ -54,13 +54,31 @@ jobs:
 #        name: source
 #        path: apache-beam-${{ env.VERSION }}
 
+
+  build_source:
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Download source
+      run: wget https://files.pythonhosted.org/packages/94/7b/ca95d917805ac03a831aa1f6fe730706790d6d7b89d85e8f4b3964ecc7d1/apache-beam-2.21.0.zip
+    - name: Unzip source
+      run: unzip $(ls | head -n 1) -d source
+    - name: Rename source directory
+      run: mv source/$(ls source | grep apache-beam) apache-beam
+    - name: Upload source
+      uses: actions/upload-artifact@v2
+      with:
+        name: source
+        path: apache-beam/
+
   build_wheels:
     name: Build wheel on ${{ matrix.os }}
     needs: build_source
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, macos-latest]
+#        os: [ubuntu-18.04, macos-latest]
+        os: [ubuntu-18.04]
+#        os: [windows-latest]
     steps:
     - name: Download source
       uses: actions/download-artifact@v2
@@ -85,7 +103,8 @@ jobs:
     - name: Build wheel
       working-directory: apache-beam-${{ env.VERSION }}
       env:
-        CIBW_BUILD: cp27-* cp35-* cp36-* cp37-*
+#        CIBW_BUILD: cp27-* cp35-* cp36-* cp37-*
+        CIBW_BUILD: cp37-*
         CIBW_BUILD_VERBOSITY: 1
         CIBW_BEFORE_BUILD: pip install cython
       run: cibuildwheel --output-dir wheelhouse
@@ -102,7 +121,9 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        os: [ubuntu-18.04, macos-latest]
+#        os: [ubuntu-18.04, macos-latest]
+        os: [ubuntu-18.04]
+#        os: [windows-latest]
     steps:
     - name: Download wheels
       uses: actions/download-artifact@v2
