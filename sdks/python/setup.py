@@ -122,6 +122,21 @@ except DistributionNotFound:
   # do nothing if Cython is not installed
   pass
 
+
+# if platform.system() == 'Windows':
+#     filename = "apache_beam/runners/worker/statesampler_fast.pyx"
+#     # Read in the file
+#     with open(filename, 'r') as file :
+#       filedata = file.read()
+#
+#     # Replace the target string
+#     filedata = filedata.replace('unistd.h', 'windows.h')
+#     filedata = filedata.replace('usleep', 'Sleep')
+#
+#     # Write the file out again
+#     with open(filename, 'w') as file:
+#       file.write(filedata)
+
 # Currently all compiled modules are optional  (for performance only).
 try:
   # pylint: disable=wrong-import-position
@@ -283,7 +298,9 @@ setuptools.setup(
         'apache_beam/transforms/cy_combiners.py',
         'apache_beam/utils/counters.py',
         'apache_beam/utils/windowed_value.py',
-    ]),
+    ],
+        exclude="apache_beam/runners/worker/statesampler_fast.pyx" if platform.system() == 'Windows' else None
+    ),
     install_requires=REQUIRED_PACKAGES,
     python_requires=python_requires,
     test_suite='nose.collector',
