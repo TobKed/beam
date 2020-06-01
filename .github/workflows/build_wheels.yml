@@ -1,0 +1,91 @@
+on: [push]
+name: Build python wheels
+
+
+jobs:
+
+  build_source:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v1
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python3 -m pip install cython && python3 -m pip install -r build-requirements.txt
+      - name: Install wheels
+        run: python3 -m pip install wheel
+      - name: Buld source
+        working-directory: ./sdks/python
+        run: python3 setup.py sdist --format=zip
+      - name: Unzip source
+        working-directory: ./sdks/python
+        run: unzip dist/$(ls dist | head -n 1)
+      - name: Rename source directory
+        working-directory: ./sdks/python
+        run: mv $(ls | grep apache-beam) apache-beam-source
+      - name: Upload source
+        uses: actions/upload-artifact@v2
+        with:
+          name: source
+          path: sdks/python/apache-beam-source
+
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    needs: build_source
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os : [ubuntu-18.04, macos-10.15]
+    steps:
+    - name: Download source
+      uses: actions/download-artifact@v2
+      with:
+        name: source
+        path: apache-beam-source
+    - name: Install Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: '3.7'
+    - name: Install packages on Mac
+      if: startsWith(matrix.os, 'macos')
+      run: |
+        brew update
+        brew install pkg-config
+    - name: Install cibuildwheel
+      run: pip install cibuildwheel==1.4.2
+    - name: Build wheel
+      working-directory: apache-beam-source
+      env:
+        CIBW_BUILD: cp27-* cp35-* cp36-* cp37-*
+        CIBW_BUILD_VERBOSITY: 3
+        CIBW_BEFORE_BUILD: pip install cython
+      run: cibuildwheel --output-dir wheelhouse
+      shell: bash
+    - name: Upload wheels
+      uses: actions/upload-artifact@v2
+      with:
+        name: wheelhouse-${{ matrix.os }}
+        path: apache-beam-source/wheelhouse/
+
+  upload_to_gcp:
+    name: Upload wheels to GCS bucket
+    needs: build_wheels
+    runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        os : [ubuntu-18.04, macos-10.15]
+    steps:
+    - name: Download wheels
+      uses: actions/download-artifact@v2
+      with:
+        name: wheelhouse-${{ matrix.os }}
+        path: wheelhouse/
+    - name: Authenticate on GCP
+      uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+      with:
+        service_account_email: ${{ secrets.CCP_SA_EMAIL }}
+        service_account_key: ${{ secrets.CCP_SA_KEY }}
+    - name: Copy wheels to GCS bucket
+      run: gsutil cp -r -a public-read wheelhouse/* gs://${{ secrets.CCP_BUCKET }}/${GITHUB_REF##*/}/
