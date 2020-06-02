@@ -40,9 +40,10 @@ jobs:
     strategy:
       matrix:
         os_python : [
-          {"os": "windows-2019", "python": "cp35-* cp36-* cp37*-"},
-          {"os": "ubuntu-18.04", "python": "cp27-* cp35-* cp36-* cp37-*"},
-          {"os": "macos-10.15", "python": "cp27-* cp35-* cp36-* cp37-*"},
+          {"os": "windows-2019", "python": "cp35-*"},
+#          {"os": "windows-2019", "python": "cp35-* cp36-* cp37*-"},
+#          {"os": "ubuntu-18.04", "python": "cp27-* cp35-* cp36-* cp37-*"},
+#          {"os": "macos-10.15", "python": "cp27-* cp35-* cp36-* cp37-*"},
         ]
     steps:
     - name: Download source
@@ -86,7 +87,8 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        os: [ubuntu-18.04, macos-10.15, windows-2019]
+#        os: [ubuntu-18.04, macos-10.15, windows-2019]
+        os: [windows-2019]
     steps:
     - name: Download wheels
       uses: actions/download-artifact@v2
