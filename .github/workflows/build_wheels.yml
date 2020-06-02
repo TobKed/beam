@@ -10,7 +10,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Install python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
       - name: Get build dependencies
         working-directory: ./sdks/python
         run: python3 -m pip install cython && python3 -m pip install -r build-requirements.txt
@@ -45,9 +47,9 @@ jobs:
         name: source
         path: apache-beam-source
     - name: Install Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
-        python-version: '3.7'
+        python-version: 3.7
     - name: Install packages on Mac
       if: startsWith(matrix.os, 'macos')
       run: |
