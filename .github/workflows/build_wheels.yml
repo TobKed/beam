@@ -1,6 +1,12 @@
-on: [push]
 name: Build python wheels
 
+on:
+  push:
+    branches:
+      - master
+      - release-*
+    tags:
+      - v*
 
 jobs:
 
