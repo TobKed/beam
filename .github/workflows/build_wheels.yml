@@ -70,6 +70,7 @@ jobs:
     needs: build_source
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    if: github.event_name != 'pull_request'
     steps:
       - name: Authenticate on GCP
         uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
@@ -100,7 +101,7 @@ jobs:
 
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
-    needs: prepare_gcs
+    needs: build_source
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -136,6 +137,7 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    if: github.event_name != 'pull_request'
     strategy:
       matrix:
         os : [ubuntu-latest, macos-latest]
@@ -156,6 +158,7 @@ jobs:
   list_files_on_gcs:
     needs: upload_wheels_to_gcs
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     steps:
     - name: Authenticate on GCP
       uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
