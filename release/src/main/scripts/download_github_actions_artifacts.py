@@ -134,13 +134,12 @@ def validate_run(run_data):
             status = run_data["status"]
             conclusion = run_data["conclusion"]
             if status != "completed":
-                print(
-                    f"Finished in: {elapsed_time}. "
-                    f"Last state: status: `{status}`, conclusion: `{conclusion}`.",
-                )
                 continue
             elif conclusion == "success":
-                print("\r")
+                print(
+                    f"\rFinished in: {elapsed_time}. "
+                    f"Last state: status: `{status}`, conclusion: `{conclusion}`.",
+                )
                 return run_data
             elif conclusion:
                 print("\r")
