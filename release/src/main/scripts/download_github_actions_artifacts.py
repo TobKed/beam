@@ -27,7 +27,18 @@ import zipfile
 import dateutil.parser
 import requests
 
-ARTIFACTS_DIRECTORY = "artifacts"
+ARTIFACTS_FOLDER = "artifacts"
+ARTIFACTS_DIRECTORY = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), ARTIFACTS_FOLDER
+)
+
+GH_API_URL_WORKLOW_FMT = (
+    "https://api.github.com/repos/{repo_url}/actions/workflows/build_wheels.yml"
+)
+GH_API_URL_WORKFLOW_RUNS_FMT = (
+    "https://api.github.com/repos/{repo_url}/actions/workflows/{workflow_id}/runs"
+)
+GH_WEB_URL_WORKLOW_RUN_FMT = "https://github.com/TobKed/beam/actions/runs/{workflow_id}"
 
 
 def parse_arguments():
@@ -49,9 +60,6 @@ def parse_arguments():
     RELEASE_BRANCH = args.release_branch
     RELEASE_COMMIT = args.release_commit
 
-    global WORKLOW_URL
-    WORKLOW_URL = f"https://api.github.com/repos/{REPO_URL}/actions/workflows/build_wheels.yml"
-
 
 def requester(url, *args, return_raw_request=False, **kwargs):
     """Helper function form making requests authorized by GitHub token"""
@@ -62,34 +70,42 @@ def requester(url, *args, return_raw_request=False, **kwargs):
     return r.json()
 
 
+def yes_or_no(question):
+    """Helper function to ask yes or no question"""
+    reply = str(input(question + " (y/n): ")).lower().strip()
+    if reply == "y":
+        return True
+    if reply == "n":
+        return False
+    else:
+        return yes_or_no("Uhhhh... please enter ")
+
+
 def get_build_wheels_workflow_id():
-    url = f"https://api.github.com/repos/{REPO_URL}/actions/workflows/build_wheels.yml"
+    url = GH_API_URL_WORKLOW_FMT.format(repo_url=REPO_URL)
     data = requester(url)
     return data["id"]
 
 
 def get_last_run(workflow_id):
-    url = (
-        f"https://api.github.com/repos/{REPO_URL}/actions/workflows/{workflow_id}/runs"
+    url = GH_API_URL_WORKFLOW_RUNS_FMT.format(
+        repo_url=REPO_URL, workflow_id=workflow_id
     )
-    data_push = requester(
-        url, params={"event": "push", "actor": USER_GITHUB_ID, "branch": RELEASE_BRANCH}
-    )
-    data_pull_request = requester(
-        url,
-        params={
-            "event": "pull_request",
-            "actor": USER_GITHUB_ID,
-            "branch": RELEASE_BRANCH,
-        },
-    )
-    runs = data_push["workflow_runs"] + data_pull_request["workflow_runs"]
+    event_types = ["push", "pull_request"]
+    runs = []
+    for event in event_types:
+        data = requester(
+            url,
+            params={"event": event, "actor": USER_GITHUB_ID, "branch": RELEASE_BRANCH},
+        )
+        runs.extend(data["workflow_runs"])
+
     filtered_commit_runs = list(
         filter(lambda w: w.get("head_sha", "") == RELEASE_COMMIT, runs)
     )
     if not filtered_commit_runs:
-        # TODO extend message
-        raise Exception("No runs for workflow ..")
+        workflow_web_url = GH_WEB_URL_WORKLOW_RUN_FMT.format(workflow_id=workflow_id)
+        raise Exception(f"No runs for workflow. Verify at {workflow_web_url}")
 
     sorted_runs = sorted(
         filtered_commit_runs,
@@ -100,7 +116,8 @@ def get_last_run(workflow_id):
     print(
         f"Found last run. SHA: {RELEASE_COMMIT}, created_at: '{last_run['created_at']}', id: {last_run['id']}"
     )
-    print(f"Verify at https://github.com/TobKed/beam/actions/runs/{last_run['id']}")
+    workflow_web_url = GH_WEB_URL_WORKLOW_RUN_FMT.format(workflow_id=last_run["id"])
+    print(f"Verify at {workflow_web_url}")
     return last_run
 
 
@@ -111,12 +128,13 @@ def validate_run(run_data):
         return run_data
 
     url = run_data["url"]
+    workflow_web_url = GH_WEB_URL_WORKLOW_RUN_FMT.format(workflow_id=run_data["id"])
     print(
-        f"Waiting for Workflow run {run_data['id']} to finish. Check on {run_data['url']}"
+        f"Waiting for Workflow run {run_data['id']} to finish. Check on {workflow_web_url}"
     )
     start_time = time.time()
     last_request = start_time
-    spinner = itertools.cycle(["-", "/", "|", "\\"])
+    spinner = itertools.cycle(["|", "/", "-", "\\"])
 
     while True:
         now = time.time()
@@ -128,7 +146,7 @@ def validate_run(run_data):
         )
 
         time.sleep(0.3)
-        if now - last_request > 10:
+        if (now - last_request) > 10:
             last_request = now
             run_data = requester(url)
             status = run_data["status"]
@@ -147,13 +165,22 @@ def validate_run(run_data):
 
 
 def reset_directory():
-    print(f"Clearing directory '{ARTIFACTS_DIRECTORY}'")
-    shutil.rmtree(ARTIFACTS_DIRECTORY, ignore_errors=True)
-    os.makedirs(ARTIFACTS_DIRECTORY)
+    question = (
+        f"Artifacts directory will be cleared. Is it OK for you?\n"
+        f"Artifacts directory: {ARTIFACTS_DIRECTORY}\n"
+        f"Your answer"
+    )
+    if yes_or_no(question):
+        print(f"Clearing directory: {ARTIFACTS_DIRECTORY}")
+        shutil.rmtree(ARTIFACTS_DIRECTORY, ignore_errors=True)
+        os.makedirs(ARTIFACTS_DIRECTORY)
+    else:
+        print("You said NO for clearing artifacts directory. Quitting ...")
+        quit(1)
 
 
 def download_artifacts(artifacts_url):
-    print("Starting downloading artifacts ...")
+    print("Starting downloading artifacts ... (it may take a while)")
     data_artifacts = requester(artifacts_url)
     filtered_artifacts = [
         a
@@ -166,7 +193,10 @@ def download_artifacts(artifacts_url):
     for artifact in filtered_artifacts:
         url = artifact["archive_download_url"]
         name = artifact["name"]
-        print(f"\tDownloading {name}.zip artifact (size: {round(artifact['size_in_bytes']/(1024 * 1014), 2)} megabytes)")
+        artifacts_size_mb = round(artifact["size_in_bytes"] / (1024 * 1024), 2)
+        print(
+            f"\tDownloading {name}.zip artifact (size: {artifacts_size_mb} megabytes)"
+        )
         r = requester(url, return_raw_request=True, allow_redirects=True)
 
         with tempfile.NamedTemporaryFile("wb", prefix=name, suffix=".zip",) as f:
@@ -178,11 +208,16 @@ def download_artifacts(artifacts_url):
 
 
 if __name__ == "__main__":
+    print(
+        "Starting script for download GitHub Actions artifacts for Build Wheels workflow"
+    )
     parse_arguments()
 
     workflow_id = get_build_wheels_workflow_id()
-    last_run = get_last_run(workflow_id)
-    last_run = validate_run(last_run)
+    run = get_last_run(workflow_id)
+    run = validate_run(run)
+    artifacts_url = run["artifacts_url"]
     reset_directory()
-    download_artifacts(last_run["artifacts_url"])
-
+    download_artifacts(artifacts_url)
+    print("Script finished successfully!")
+    print(f"Artifacts available in directory: {ARTIFACTS_DIRECTORY}")
