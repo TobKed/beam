@@ -94,10 +94,7 @@ def get_last_run(workflow_id):
     event_types = ["push", "pull_request"]
     runs = []
     for event in event_types:
-        data = requester(
-            url,
-            params={"event": event, "actor": USER_GITHUB_ID, "branch": RELEASE_BRANCH},
-        )
+        data = requester(url, params={"event": event, "branch": RELEASE_BRANCH},)
         runs.extend(data["workflow_runs"])
 
     filtered_commit_runs = list(
