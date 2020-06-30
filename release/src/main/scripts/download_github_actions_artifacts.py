@@ -120,6 +120,10 @@ def get_last_run(workflow_id):
   workflow_web_url = GH_WEB_URL_WORKLOW_RUN_FMT.format(
       workflow_id=last_run["id"])
   print(f"Verify at {workflow_web_url}")
+  print(
+      f"Optional upload to GCS will be available at:\n"
+      f"\tgs://beam-wheels-staging/{RELEASE_BRANCH}/{RELEASE_COMMIT}-{workflow_id}/"
+  )
   return last_run
 
 
