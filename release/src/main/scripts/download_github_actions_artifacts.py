@@ -220,11 +220,14 @@ if __name__ == "__main__":
   )
   parse_arguments()
 
-  workflow_id = get_build_wheels_workflow_id()
-  run = get_last_run(workflow_id)
-  run = validate_run(run)
-  artifacts_url = run["artifacts_url"]
-  reset_directory()
-  download_artifacts(artifacts_url)
-  print("Script finished successfully!")
-  print(f"Artifacts available in directory: {ARTIFACTS_DIRECTORY}")
+  try:
+    workflow_id = get_build_wheels_workflow_id()
+    run = get_last_run(workflow_id)
+    run = validate_run(run)
+    artifacts_url = run["artifacts_url"]
+    reset_directory()
+    download_artifacts(artifacts_url)
+    print("Script finished successfully!")
+    print(f"Artifacts available in directory: {ARTIFACTS_DIRECTORY}")
+  except KeyboardInterrupt as e:
+    print("\nScript cancelled. Quitting ...")
