@@ -27,10 +27,6 @@ import zipfile
 import dateutil.parser
 import requests
 
-ARTIFACTS_FOLDER = "artifacts"
-ARTIFACTS_DIRECTORY = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), ARTIFACTS_FOLDER)
-
 GH_API_URL_WORKLOW_FMT = (
     "https://api.github.com/repos/{repo_url}/actions/workflows/build_wheels.yml"
 )
@@ -50,15 +46,17 @@ def parse_arguments():
   parser.add_argument("--repo-url", required=True)
   parser.add_argument("--release-branch", required=True)
   parser.add_argument("--release-commit", required=True)
+  parser.add_argument("--artifacts_dir", required=True)
 
   args = parser.parse_args()
 
-  global GITHUB_TOKEN, USER_GITHUB_ID, REPO_URL, RELEASE_BRANCH, RELEASE_COMMIT
+  global GITHUB_TOKEN, USER_GITHUB_ID, REPO_URL, RELEASE_BRANCH, RELEASE_COMMIT, ARTIFACTS_DIR
   GITHUB_TOKEN = args.github_token
   USER_GITHUB_ID = args.github_user
   REPO_URL = args.repo_url
   RELEASE_BRANCH = args.release_branch
   RELEASE_COMMIT = args.release_commit
+  ARTIFACTS_DIR = args.artifacts_dir
 
 
 def requester(url, *args, return_raw_request=False, **kwargs):
@@ -174,12 +172,12 @@ def validate_run(run_data):
 def reset_directory():
   question = (
       f"Artifacts directory will be cleared. Is it OK for you?\n"
-      f"Artifacts directory: {ARTIFACTS_DIRECTORY}\n"
+      f"Artifacts directory: {ARTIFACTS_DIR}\n"
       f"Your answer")
   if yes_or_no(question):
-    print(f"Clearing directory: {ARTIFACTS_DIRECTORY}")
-    shutil.rmtree(ARTIFACTS_DIRECTORY, ignore_errors=True)
-    os.makedirs(ARTIFACTS_DIRECTORY)
+    print(f"Clearing directory: {ARTIFACTS_DIR}")
+    shutil.rmtree(ARTIFACTS_DIR, ignore_errors=True)
+    os.makedirs(ARTIFACTS_DIR)
   else:
     print("You said NO for clearing artifacts directory. Quitting ...")
     quit(1)
@@ -211,7 +209,7 @@ def download_artifacts(artifacts_url):
 
       with zipfile.ZipFile(f.name, "r") as zip_ref:
         print(f"\tUnzipping {len(zip_ref.filelist)} files")
-        zip_ref.extractall(ARTIFACTS_DIRECTORY)
+        zip_ref.extractall(ARTIFACTS_DIR)
 
 
 if __name__ == "__main__":
@@ -228,6 +226,6 @@ if __name__ == "__main__":
     reset_directory()
     download_artifacts(artifacts_url)
     print("Script finished successfully!")
-    print(f"Artifacts available in directory: {ARTIFACTS_DIRECTORY}")
+    print(f"Artifacts available in directory: {ARTIFACTS_DIR}")
   except KeyboardInterrupt as e:
     print("\nScript cancelled. Quitting ...")
