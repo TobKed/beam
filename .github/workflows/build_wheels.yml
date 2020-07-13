@@ -134,11 +134,9 @@ jobs:
         CIBW_BEFORE_BUILD: pip install cython
       run: cibuildwheel --print-build-identifiers && cibuildwheel --output-dir wheelhouse
       shell: bash
-    - name: install sha512sum on MacOS
-      if: startsWith(matrix.os, 'macos')
-      run: brew install coreutils
     - name: Add checksums
       working-directory: apache-beam-source/wheelhouse/
+      shell: bash
       run: |
         for file in *.whl; do
           sha512sum $file > ${file}.sha512
