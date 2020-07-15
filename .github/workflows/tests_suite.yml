@@ -1,0 +1,129 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+
+name: Test Suites
+on: [push]
+jobs:
+  python_unit_tests:
+    name: 'Python Unit Tests'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        params: [
+          {"py_ver": "2.7", "tox_env": "py27"},
+          {"py_ver": "3.5", "tox_env": "py35"},
+          {"py_ver": "3.6", "tox_env": "py36"},
+          {"py_ver": "3.7", "tox_env": "py37"},
+        ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.params.py_ver }}
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python -m pip install -r build-requirements.txt
+      - name: Install tox
+        run: pip install tox
+      - name: Run tests basic unix
+        if: startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'macos')
+        working-directory: ./sdks/python
+        run: tox -c tox.ini -e ${{ matrix.params.tox_env }}
+      - name: Run tests basic windows
+        if: startsWith(matrix.os, 'windows') && (matrix.params.py_ver != '2.7')
+        working-directory: ./sdks/python
+        run: tox -c tox.ini -e ${{ matrix.params.tox_env }}-win
+
+  python_wordcount:
+    name: 'Python Wordcount'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python -m pip install -r build-requirements.txt
+      - name: Install requirements
+        working-directory: ./sdks/python
+        run: pip install -e .
+      - name: Run WordCount
+        working-directory: ./sdks/python
+        run: python -m apache_beam.examples.wordcount --input MANIFEST.in --output counts
+
+  java_unit_tests:
+    name: 'Java Unit Tests'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: |
+          ./gradlew :sdks:java:core:test
+          ./gradlew :sdks:java:harness:test
+          ./gradlew :runners:core-java:test
+
+  Java_wordcount:
+    name: 'Java Wordcount'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Get the WordCount Code Unix
+        if: startsWith(matrix.os, 'macos') || startsWith(matrix.os, 'ubuntu')
+        run: |
+          mvn archetype:generate \
+            -DarchetypeGroupId=org.apache.beam \
+            -DarchetypeArtifactId=beam-sdks-java-maven-archetypes-examples \
+            -DarchetypeVersion=2.22.0 \
+            -DgroupId=org.example \
+            -DartifactId=word-count-beam \
+            -Dversion="0.1" \
+            -Dpackage=org.apache.beam.examples \
+            -DinteractiveMode=false
+      - name: Get the WordCount Code Windows
+        if: startsWith(matrix.os, 'windows')
+        run: mvn archetype:generate -D archetypeGroupId=org.apache.beam -D archetypeArtifactId=beam-sdks-java-maven-archetypes-examples -D archetypeVersion=2.22.0 -D groupId=org.example -D artifactId=word-count-beam -D version="0.1" -D package=org.apache.beam.examples -D interactiveMode=false
+      - name: Run WordCount Unix
+        if: startsWith(matrix.os, 'macos') || startsWith(matrix.os, 'ubuntu')
+        working-directory: ./word-count-beam
+        run: mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.WordCount -Dexec.args="--inputFile=pom.xml --output=counts" -Pdirect-runner
+      - name: Run WordCount Windows
+        if: startsWith(matrix.os, 'windows')
+        working-directory: ./word-count-beam
+        run: mvn compile exec:java -D exec.mainClass=org.apache.beam.examples.WordCount -D exec.args="--inputFile=pom.xml --output=counts" -P direct-runner
