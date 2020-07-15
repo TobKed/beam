@@ -1,0 +1,260 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+
+name: Test Suites
+
+on: [push]
+
+env:
+  GCP_BUCKET: ${{ secrets.GCP_BUCKET }}
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: europe-west3
+
+
+jobs:
+  python_unit_tests:
+    name: 'Python Unit Tests'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        params: [
+          {"py_ver": "3.5", "tox_env": "py35"},
+          {"py_ver": "3.6", "tox_env": "py36"},
+          {"py_ver": "3.7", "tox_env": "py37"},
+        ]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.params.py_ver }}
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python -m pip install -r build-requirements.txt
+      - name: Install tox
+        run: pip install tox
+      - name: Run tests basic unix
+        if: startsWith(matrix.os, 'ubuntu') || startsWith(matrix.os, 'macos')
+        working-directory: ./sdks/python
+        run: tox -c tox.ini -e ${{ matrix.params.tox_env }}
+      - name: Run tests basic windows
+        if: startsWith(matrix.os, 'windows') && (matrix.params.py_ver != '2.7')
+        working-directory: ./sdks/python
+        run: tox -c tox.ini -e ${{ matrix.params.tox_env }}-win
+
+  python_wordcount_direct_runner:
+    name: 'Python Wordcount Direct Runner'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: [3.5, 3.6, 3.7]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python -m pip install -r build-requirements.txt
+      - name: Install requirements
+        working-directory: ./sdks/python
+        run: pip install -e .
+      - name: Run WordCount
+        working-directory: ./sdks/python
+        run: python -m apache_beam.examples.wordcount --input MANIFEST.in --output counts
+
+  # this is exactly the same as job in build_python_wheels.yml workflow
+  build_source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python -m pip install -r build-requirements.txt
+      - name: Install wheels
+        run: python -m pip install wheel
+      - name: Build source
+        working-directory: ./sdks/python
+        run: python setup.py sdist --formats=gztar,zip
+      - name: Add checksums
+        working-directory: ./sdks/python/dist
+        run: |
+          for file in *.zip *.tar.gz; do
+            sha512sum $file > ${file}.sha512
+          done
+      - name: Unzip source
+        working-directory: ./sdks/python
+        run: unzip dist/$(ls dist | grep .zip | head -n 1)
+      - name: Rename source directory
+        working-directory: ./sdks/python
+        run: mv $(ls | grep apache-beam) apache-beam-source
+      - name: Upload source as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: source
+          path: sdks/python/apache-beam-source
+      - name: Upload compressed sources as artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: source_gztar_zip
+          path: sdks/python/dist
+
+  python_wordcount_dataflow:
+    name: 'Python Wordcount Dataflow'
+    needs: build_source
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: [3.5, 3.6, 3.7]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Download source from artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: source_gztar_zip
+          path: apache-beam-source
+      - name: Authenticate on GCP
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+      - name: Get build dependencies
+        working-directory: ./sdks/python
+        run: python -m pip install -r build-requirements.txt
+      - name: Install requirements
+        working-directory: ./sdks/python
+        run: pip install -e ".[gcp]"
+      - name: Run WordCount
+        working-directory: ./sdks/python
+        shell: bash
+        run: |
+          python -m apache_beam.examples.wordcount \
+            --input gs://dataflow-samples/shakespeare/kinglear.txt \
+            --output gs://${{ env.GCP_BUCKET }}/counts \
+            --runner DataflowRunner \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --region ${{ env.GCP_REGION }} \
+            --temp_location gs://${{ env.GCP_BUCKET }}/tmp/ \
+            --sdk_location "../../apache-beam-source/$(ls ../../apache-beam-source | grep '^apache-beam.*zip$')"
+
+  java_unit_tests:
+    name: 'Java Unit Tests'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: |
+          ./gradlew :sdks:java:core:test
+          ./gradlew :sdks:java:harness:test
+          ./gradlew :runners:core-java:test
+
+  Java_wordcount_direct_runner:
+    name: 'Java Wordcount Direct Runner'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Get the WordCount Code
+        shell: bash
+        run: |
+          mvn archetype:generate \
+            -DarchetypeGroupId=org.apache.beam \
+            -DarchetypeArtifactId=beam-sdks-java-maven-archetypes-examples \
+            -DarchetypeVersion=2.22.0 \
+            -DgroupId=org.example \
+            -DartifactId=word-count-beam \
+            -Dversion="0.1" \
+            -Dpackage=org.apache.beam.examples \
+            -DinteractiveMode=false
+      - name: Run WordCount
+        working-directory: ./word-count-beam
+        shell: bash
+        run: |
+          mvn compile exec:java \
+            -Dexec.mainClass=org.apache.beam.examples.WordCount \
+            -Dexec.args="--inputFile=pom.xml --output=counts" \
+            -Pdirect-runner
+
+  Java_wordcount_dataflow:
+    name: 'Java Wordcount Dataflow'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Authenticate on GCP
+        uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          service_account_email: ${{ secrets.GCP_SA_EMAIL }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+      - name: Get the WordCount Code
+        shell: bash
+        run: |
+          mvn archetype:generate \
+            -DarchetypeGroupId=org.apache.beam \
+            -DarchetypeArtifactId=beam-sdks-java-maven-archetypes-examples \
+            -DarchetypeVersion=2.22.0 \
+            -DgroupId=org.example \
+            -DartifactId=word-count-beam \
+            -Dversion="0.1" \
+            -Dpackage=org.apache.beam.examples \
+            -DinteractiveMode=false
+      - name: Run WordCount
+        working-directory: ./word-count-beam
+        shell: bash
+        run: |
+          mvn compile exec:java -Dexec.mainClass=org.apache.beam.examples.WordCount \
+            -Dexec.args="--runner=DataflowRunner --project=${{ env.GCP_PROJECT_ID }} \
+            --region=${{ env.GCP_REGION }} \
+            --gcpTempLocation=gs://${{ env.GCP_BUCKET }}/tmp \
+            --inputFile=gs://apache-beam-samples/shakespeare/* \
+            --output=gs://${{ env.GCP_BUCKET }}/counts" \
+            -Pdataflow-runner
