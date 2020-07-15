@@ -27,9 +27,7 @@ import zipfile
 import dateutil.parser
 import requests
 
-GH_API_URL_WORKLOW_FMT = (
-    "https://api.github.com/repos/{repo_url}/actions/workflows/build_wheels.yml"
-)
+GH_API_URL_WORKLOW_FMT = "https://api.github.com/repos/{repo_url}/actions/workflows/build_wheels.yml"
 GH_API_URL_WORKFLOW_RUNS_FMT = (
     "https://api.github.com/repos/{repo_url}/actions/workflows/{workflow_id}/runs"
 )
