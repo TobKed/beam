@@ -31,10 +31,10 @@ on:
 
 
 env:
-  GCP_WHEELS_STAGING_PATH: "gs://beam-wheels-staging/${GITHUB_REF##*/}/${GITHUB_SHA}-${GITHUB_RUN_ID}/"
-  GCP_BUCKET: "beam-wheels-staging"
-  GCP_PROJECT_ID: "apache-beam-testing"
-  GCP_REGION: "us-central1"
+  GCP_WHEELS_STAGING_PATH: "gs://${{ secrets.GCP_BUCKET }}/${GITHUB_REF##*/}/${GITHUB_SHA}-${GITHUB_RUN_ID}/"
+  GCP_BUCKET: ${{ secrets.GCP_BUCKET }}
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: europe-west3
 
 jobs:
 
@@ -83,7 +83,7 @@ jobs:
     name: Prepare GCS
     needs: build_python_sdk_source
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'apache' && (github.event_name == 'push' || github.event_name == 'schedule')
+    if: github.repository_owner == 'TobKed' && (github.event_name == 'push' || github.event_name == 'schedule')
     steps:
       - name: Authenticate on GCP
         uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
@@ -97,7 +97,7 @@ jobs:
     name: Upload Python SDK source to GCS bucket
     needs: prepare_gcs
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'apache'
+    if: github.repository_owner == 'TobKed'
     steps:
       - name: Download compressed sources from artifacts
         uses: actions/download-artifact@v2
@@ -162,7 +162,7 @@ jobs:
     name: Upload Python SDK wheels to GCS bucket
     needs: build_python_sdk_wheels
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'apache' && (github.event_name == 'push' || github.event_name == 'schedule')
+    if: github.repository_owner == 'TobKed' && (github.event_name == 'push' || github.event_name == 'schedule')
     strategy:
       matrix:
         os : [ubuntu-latest, macos-latest, windows-latest]
@@ -204,7 +204,7 @@ jobs:
     name: List files on Google Cloud Storage Bucket
     needs: upload_python_sdk_wheels_to_gcs
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'apache' && (github.event_name == 'push' || github.event_name == 'schedule')
+    if: github.repository_owner == 'TobKed' && (github.event_name == 'push' || github.event_name == 'schedule')
     steps:
     - name: Authenticate on GCP
       uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
@@ -279,7 +279,7 @@ jobs:
     name: 'Python Wordcount Dataflow'
     needs: build_python_sdk_source
     runs-on: ${{ matrix.os }}
-    if: github.repository_owner == 'apache' && (github.event_name == 'push' || github.event_name == 'schedule')
+    if: github.repository_owner == 'TobKed' && (github.event_name == 'push' || github.event_name == 'schedule')
     strategy:
       fail-fast: false
       matrix:
@@ -374,7 +374,7 @@ jobs:
   java_wordcount_dataflow:
     name: 'Java Wordcount Dataflow'
     runs-on: ${{ matrix.os }}
-    if: github.repository_owner == 'apache' && (github.event_name == 'push' || github.event_name == 'schedule')
+    if: github.repository_owner == 'TobKed' && (github.event_name == 'push' || github.event_name == 'schedule')
     strategy:
       fail-fast: false
       matrix:
@@ -425,7 +425,7 @@ jobs:
       - java_wordcount_dataflow
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    if: github.repository_owner == 'apache' && github.event_name == 'schedule'
+    if: github.repository_owner == 'TobKed' && github.event_name == 'schedule'
     steps:
       - name: Checkout code on master branch
         uses: actions/checkout@master
