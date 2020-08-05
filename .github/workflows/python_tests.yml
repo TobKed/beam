@@ -103,6 +103,12 @@ jobs:
         if: startsWith(matrix.os, 'windows')
         working-directory: ./sdks/python
         run: tox -c tox.ini -e ${{ matrix.params.tox_env }}-win
+      - name: Upload test logs
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: pytest-${{matrix.os}}-${{matrix.params.py_ver}}
+          path: sdks/python/pytest**.xml
 
   python_wordcount_direct_runner:
     name: 'Python Wordcount Direct Runner'
