@@ -38,7 +38,7 @@ env:
 jobs:
 
   build_python_sdk_source:
-    name: 'Build Python SDK Source'
+    name: 'Build python source distribution'
     if: github.repository_owner == 'apache' && (github.event_name == 'push' || github.event_name == 'schedule')
     runs-on: ubuntu-latest
     steps:
@@ -50,28 +50,18 @@ jobs:
           python-version: 3.7
       - name: Get build dependencies
         working-directory: ./sdks/python
-        run: pip install -r build-requirements.txt
-      - name: Install wheels
-        run: pip install wheel
+        run: pip install pip setuptools --upgrade && pip install -r build-requirements.txt
       - name: Build source
         working-directory: ./sdks/python
-        run: python setup.py sdist --formats=zip
-      - name: Add checksums
+        run: python setup.py sdist
+      - name: Rename source file
         working-directory: ./sdks/python/dist
-        run: |
-          file=$(ls | grep .zip | head -n 1)
-          sha512sum $file > ${file}.sha512
-      - name: Unzip source
-        working-directory: ./sdks/python
-        run: unzip dist/$(ls dist | grep .zip | head -n 1)
-      - name: Rename source directory
-        working-directory: ./sdks/python
-        run: mv $(ls | grep apache-beam) apache-beam-source
+        run: mv $(ls | grep "apache-beam.*tar\.gz") apache-beam-source.tar.gz
       - name: Upload compressed sources as artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: source_zip
-          path: sdks/python/dist
+          name: python_sdk_source
+          path: sdks/python/dist/apache-beam-source.tar.gz
 
   python_unit_tests:
     name: 'Python Unit Tests'
@@ -168,7 +158,7 @@ jobs:
       - name: Download source from artifacts
         uses: actions/download-artifact@v2
         with:
-          name: source_zip
+          name: python_sdk_source
           path: apache-beam-source
       - name: Authenticate on GCP
         uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
@@ -188,9 +178,9 @@ jobs:
         run: |
           python -m apache_beam.examples.wordcount \
             --input gs://dataflow-samples/shakespeare/kinglear.txt \
-            --output gs://${{ env.GCP_BUCKET }}/counts \
+            --output gs://${{ env.GCP_BUCKET }}/python_wordcount_dataflow/counts \
             --runner DataflowRunner \
             --project ${{ env.GCP_PROJECT_ID }} \
             --region ${{ env.GCP_REGION }} \
-            --temp_location gs://${{ env.GCP_BUCKET }}/tmp/ \
-            --sdk_location "../../apache-beam-source/$(ls ../../apache-beam-source | grep '^apache-beam.*zip$')"
+            --temp_location gs://${{ env.GCP_BUCKET }}/tmp/python_wordcount_dataflow/ \
+            --sdk_location ../../apache-beam-source/apache-beam-source.tar.gz
