@@ -39,7 +39,9 @@ jobs:
 
   build_python_sdk_source:
     name: 'Build python source distribution'
-    if: github.repository_owner == 'apache' && (github.event_name == 'push' || github.event_name == 'schedule')
+    if: |
+      github.repository_owner == 'apache' &&
+      (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -137,7 +139,9 @@ jobs:
     name: 'Python Wordcount Dataflow'
     needs: build_python_sdk_source
     runs-on: ${{ matrix.os }}
-    if: github.repository_owner == 'apache' && (github.event_name == 'push' || github.event_name == 'schedule')
+    if: |
+      github.repository_owner == 'apache' &&
+      (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     strategy:
       fail-fast: false
       matrix:

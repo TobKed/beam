@@ -20,7 +20,6 @@
 from __future__ import absolute_import
 
 import logging
-import os
 import re
 import unittest
 from builtins import range
@@ -89,7 +88,7 @@ class FnApiLogRecordHandlerTest(unittest.TestCase):
             '%s: %s' % (msg, num_received_log_entries), log_entry.message)
         self.assertTrue(
             re.match(
-                rf'.*{os.sep}log_handler_test.py:\d+', log_entry.log_location),
+                r'.*(/|\\)log_handler_test.py:\d+', log_entry.log_location),
             log_entry.log_location)
         self.assertGreater(log_entry.timestamp.seconds, 0)
         self.assertGreaterEqual(log_entry.timestamp.nanos, 0)
