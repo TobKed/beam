@@ -75,8 +75,27 @@ run categories. Here is a summary of the run categories with regards of the jobs
 Those jobs often have matrix run strategy which runs several different variations of the jobs
 (with different platform type / Python version to run for example)
 
+### Google Cloud Platform Credentials
+
+Some of the jobs require variables stored as a [GitHub Secrets](https://docs.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets)
+to perform operations on Google Cloud Platform. Currently these jobs are limited to Apache repository only.
+These variables are:
+ * `GCP_PROJECT_ID` - ID of the Google Cloud project. Apache/Beam repository has it set to `apache-beam-testing`.
+ * `GCP_TESTING_BUCKET` - Name of the bucket where temporary files for Dataflow tests will be stored. Apache/Beam repository has it set to `beam-github-actions-tests`.
+ * `GCP_SA_EMAIL` - Service account email address. This is usually of the format `<name>@<project-id>.iam.gserviceaccount.com`.
+ * `GCP_SA_KEY` - Service account key. This key should be created and encoded as a Base64 string (eg. `cat my-key.json | base64` on macOS).
+
+Service Account shall have following permissions:
+ * Storage Admin (roles/storage.admin)
+ * Dataflow Admin (roles/dataflow.admin)
+
+### Workflows
+
+#### Build python source distribution and wheels - [build_wheels.yml](.github/workflows/build_wheels.yml)
+
 | Job                                             | Description                                                                                                                                                                                                                                                        | Pull Request Run | Direct Push/Merge Run | Scheduled Run | Requires GCP Credentials |
 |-------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------|-----------------------|---------------|--------------------------|
+| Check are GCP variables set                     | Checks are GCP variables are set. Jobs which required them depends on the output of this job.                                                                                                                                                                      | Yes              | Yes                   | Yes           | Yes/No                   |
 | Build python source distribution                | Builds python source distribution and uploads it to artifacts. Artifacts from release branch are used in release process ([`build_release_candidate.sh`](release/src/main/scripts/build_release_candidate.sh))                                                     | Yes              | Yes                   | Yes           | -                        |
 | Prepare GCS                                     | Clears target path on GCS if already exists.                                                                                                                                                                                                                       | -                | Yes                   | Yes           | Yes                      |
 | Upload python source distribution to GCS bucket | Uploads python source distribution to GCS bucket for path unique for specific workflow run.                                                                                                                                                                        | -                | Yes                   | Yes           | Yes                      |
@@ -85,16 +104,14 @@ Those jobs often have matrix run strategy which runs several different variation
 | List files on Google Cloud Storage Bucket       | Lists files on GCS for verification purpose.                                                                                                                                                                                                                       | -                | Yes                   | Yes           | Yes                      |
 | Tag repo nightly                                | Tag repo with `nightly-master` tag if build python source distribution and python wheels finished successfully.                                                                                                                                                    | -                | -                     | Yes           | -                        |
 
-### Google Cloud Platform Credentials
+#### Java tests - [java_tests.yml](.github/workflows/java_tests.yml)
 
-Some of the jobs require variables stored as a [GitHub Secrets](https://docs.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets)
-to perform operations on Google Cloud Platform. Currently these jobs are limited to Apache repository only.
-These variables are:
- * `GCP_SA_EMAIL` - Service account email address. This is usually of the format `<name>@<project-id>.iam.gserviceaccount.com`.
- * `GCP_SA_KEY` - Service account key. This key should be created and encoded as a Base64 string (eg. `cat my-key.json | base64` on macOS).
-
-Service Account shall have following permissions:
- * Storage Object Admin (roles/storage.objectAdmin)
+| Job                          | Description                                                                                   | Pull Request Run | Direct Push/Merge Run | Scheduled Run | Requires GCP Credentials |
+|------------------------------|-----------------------------------------------------------------------------------------------|------------------|-----------------------|---------------|--------------------------|
+| Check are GCP variables set  | Checks are GCP variables are set. Jobs which required them depends on the output of this job. | Yes              | Yes                   | Yes           | Yes/No                   |
+| Java Unit Tests              | Runs Java unit tests.                                                                         | Yes              | Yes                   | Yes           | -                        |
+| Java Wordcount Direct Runner | Runs Java WordCount example with Direct Runner.                                               | Yes              | Yes                   | Yes           | -                        |
+| Java Wordcount Dataflow      | Runs Java WordCount example with DataFlow Runner.                                             | -                | Yes                   | Yes           | Yes                      |
 
 ### GitHub Action Tips
 

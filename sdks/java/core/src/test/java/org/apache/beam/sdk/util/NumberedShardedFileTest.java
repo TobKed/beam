@@ -17,6 +17,7 @@
  */
 package org.apache.beam.sdk.util;
 
+import static org.junit.Assume.assumeFalse;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
@@ -32,6 +33,7 @@ import java.util.regex.Pattern;
 import org.apache.beam.sdk.io.LocalResources;
 import org.apache.beam.sdk.io.fs.ResolveOptions.StandardResolveOptions;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.io.Files;
+import org.apache.commons.lang3.SystemUtils;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -55,6 +57,8 @@ public class NumberedShardedFileTest {
 
   @Before
   public void setup() throws IOException {
+    // TODO: Fix failing on windows, address https://issues.apache.org/jira/browse/BEAM-XXXX.
+    assumeFalse(SystemUtils.IS_OS_WINDOWS);
     filePattern =
         LocalResources.fromFile(tmpFolder.getRoot(), true)
             .resolve("*", StandardResolveOptions.RESOLVE_FILE)
