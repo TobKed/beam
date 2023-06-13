@@ -38,7 +38,7 @@ require (
 	github.com/aws/smithy-go v1.13.5
 	github.com/docker/go-connections v0.4.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/go-sql-driver/mysql v1.7.0
+	github.com/go-sql-driver/mysql v1.7.1
 	github.com/golang/protobuf v1.5.3 // TODO(danoliveira): Fully replace this with google.golang.org/protobuf
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
@@ -66,7 +66,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require golang.org/x/exp v0.0.0-20230321023759-10a507213a29
+require golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 
 require (
 	cloud.google.com/go v0.110.0 // indirect
