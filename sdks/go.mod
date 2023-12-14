@@ -28,7 +28,7 @@ require (
 	cloud.google.com/go/datastore v1.15.0
 	cloud.google.com/go/profiler v0.4.0
 	cloud.google.com/go/pubsub v1.33.0
-	cloud.google.com/go/spanner v1.51.0
+	cloud.google.com/go/spanner v1.54.0
 	cloud.google.com/go/storage v1.34.1
 	github.com/aws/aws-sdk-go-v2 v1.23.0
 	github.com/aws/aws-sdk-go-v2/config v1.25.1
@@ -78,8 +78,11 @@ require (
 	github.com/Microsoft/hcsshim v0.11.1 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nats-io/jwt/v2 v2.5.2 // indirect
 	github.com/nats-io/nkeys v0.4.6 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
